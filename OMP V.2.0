@@ -1,0 +1,128 @@
+from scipy.io import loadmat
+
+import numpy as np
+import sklearn.preprocessing as preprocessing
+import pandas as pd
+from numpy import array
+from numpy.linalg import norm
+import matplotlib.pyplot as plt
+from scipy.spatial import distance
+
+
+def OMP(b, A, s):
+    # size dictionary row sayısını alıyoruz
+    m = 400
+
+    S = []
+    # OMP iterations
+    k = 0
+    r = b
+    A = A.to_numpy()
+    x_S = []
+
+    while k <s:
+        # step1 sweep
+
+        innerProds = np.zeros((1, m))
+        # innerProds=pd.DataFrame(innerProds)
+        for tt in range(0, m):
+            e = A[:, tt].reshape(200,1).T
+            innerProds[0,tt] = abs(np.matmul(e, r)[0])
+
+        mx = np.argmax(innerProds, axis=1)[0]
+
+        S.append(mx)
+        # Step 4: Find approx. sparse x (least squares)
+        A_S= np.zeros((200, len(S)))
+        for i in range(len(S)):
+            A_S[:,i]=A[:,S[i]].reshape(200)
+        A_S_T = A_S.T
+        A_S_T = A_S_T.reshape(len(S), 200)
+        # s nin indisini koymam gerek ki oradaki tüm değeri alsın
+        first = np.matmul(A_S_T, A_S)
+
+        # second = float(A_S_T.dot(b))
+        second = np.matmul(A_S_T, b)
+
+        x_S = np.linalg.lstsq(first, second)[0]
+
+        # Step 5: update residual
+        secondPart = np.matmul(A_S,x_S)
+        r =np.subtract(b,secondPart)
+        k = k + 1
+    S.sort()
+    return S,x_S
+
+X = loadmat('C:/Users/Basak/Desktop/indian_pines/Indian_pines_corrected.mat')['indian_pines_corrected']
+y = loadmat('C:/Users/Basak/Desktop/indian_pines/Indian_pines_gt.mat')['indian_pines_gt']
+
+M = np.zeros((21025, 200))
+c = 0
+for i in range(145):
+    for j in range(145):
+        M[:][c] = (X[i][j][:])
+        c = c + 1
+M = M.transpose()
+
+# step 2
+
+Mnorm = np.zeros((200, 21025))
+Mnorm = M
+l2_norm = preprocessing.normalize(M, norm='l2', axis=1)
+l2_norm = pd.DataFrame(l2_norm)
+Mnorm = pd.DataFrame(Mnorm)
+
+for a in range(21025):
+    Mnorm[:][a] = Mnorm[:][a] / (norm(Mnorm[:][a], 2))
+
+# step 3 200* 21025 matriste 21025lik kısımdan 400 tane secip matris.i küçültüyoruz ve bu bizim dictionaryimiz oluyor
+
+df = pd.DataFrame(Mnorm)
+# D=pd.DataFrame(np.zeros((200,400)))
+
+D = df.sample(n=400, axis=1, replace="false")
+
+columnsIndex = D.columns
+
+#Create V Vector
+newNumber = np.random.randint(0, 21025)
+while newNumber not in columnsIndex:
+    newNumber = np.random.randint(0, 21025)
+V = Mnorm[:][newNumber]
+V = V.to_numpy().reshape(200,1)
+# Create unique signal
+
+signals = np.zeros((200, 1))
+for i in range(200):
+
+
+    if columnsIndex[i] != newNumber:
+        signals[i] = newNumber
+print("newNumber", newNumber)
+dictionary = np.zeros((200, 400))
+D.columns = [i for i in range(0, 400)]
+
+signal = Mnorm[signals[2]]
+signal = signal.to_numpy()
+signal = signal.reshape(200, 1)
+# signal = preprocessing.normalize(signal, norm='l2', axis=0)
+s = 1
+#r = OMP(signal, D, 2)
+
+def bare_numpy(v, u):
+    return np.sqrt(np.sum((u - v) ** 2))
+
+result_array = np.zeros((10, 1))
+s = 1
+for i in range(0, 10):
+    S,x_S = OMP(V, D, s)
+    #Hocam Buraya Ne Gelicek ??????
+    #result = bare_numpy(V, x_S)
+    #result_array[i] = result
+    print(i,x_S)
+    s = s + 1
+#print("Result 1", result_array)
+
+#plt.plot(result_array)
+
+#plt.show()
